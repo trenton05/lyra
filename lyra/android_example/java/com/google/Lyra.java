@@ -48,7 +48,6 @@ public class Lyra {
   public void init() {
     weightsDirectory = context.getExternalFilesDir(null).getAbsolutePath();
     copyWeightsAssetsToDirectory(weightsDirectory);
-    init(weightsDirectory);
   }
 
   private void copyWeightsAssetsToDirectory(String targetDirectory) {
