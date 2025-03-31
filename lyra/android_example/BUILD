@@ -30,7 +30,7 @@ cc_library(
 
 android_library(
     name = "lyra_android_lib",
-    srcs = ["//lyra/android_example/java/com/google:MainActivity.java"],
+    srcs = ["//lyra/android_example/java/com/google:Lyra.java"],
     custom_package = "com.google",
     manifest = "LibraryManifest.xml",
     resource_files = glob(["res/**/*"]),

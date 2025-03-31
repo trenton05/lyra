@@ -29,7 +29,7 @@
                  android:taskAffinity="">
       <!-- Main Activity definition. -->
       <activity
-          android:name="com.google.MainActivity"
+          android:name="com.google.Lyra"
           android:label="@string/app_name"
           android:exported="true">
         <intent-filter>
