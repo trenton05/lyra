@@ -30,8 +30,8 @@ cc_library(
 
 android_library(
     name = "lyra_android_lib",
-    srcs = ["//lyra/android_example/java/com/example/android/lyra:MainActivity.java"],
-    custom_package = "com.example.android.lyra",
+    srcs = ["//lyra/android_example/java/com/google:MainActivity.java"],
+    custom_package = "com.google",
     manifest = "LibraryManifest.xml",
     resource_files = glob(["res/**/*"]),
     deps = [
@@ -55,7 +55,7 @@ android_binary(
         ":assets",
     ],
     assets_dir = "model_coeffs",
-    custom_package = "com.example.android.lyra",
+    custom_package = "com.google",
     manifest = "AndroidManifest.xml",
     multidex = "native",
     deps = [":lyra_android_lib"],

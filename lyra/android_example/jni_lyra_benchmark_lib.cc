@@ -12,61 +12,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+    File for reference only... this was ultimately compiled into liblyra_android_example.so via the following:
+    * Take lyra source code and build android_example
+    * Modify android_example to rename com.google.android_example.lyra.MainActivity to com.google.Lyra (file + manifest + BUILD)
+    * Add to Lyra.java any native methods found in this file
+    * Copy this file over the existing file in the example
+    * Build the example, find the output apk
+    * Unzip the apk and copy the two .so files into the jniLibs folder
+*/
+
 #include <jni.h>
 
 #include <string>
 #include <vector>
 
-#include "absl/random/random.h"
 #include "lyra/cli_example/decoder_main_lib.h"
 #include "lyra/cli_example/encoder_main_lib.h"
-#include "lyra/lyra_benchmark_lib.h"
 #include "lyra/lyra_config.h"
+#include "lyra/lyra_encoder.h"
+#include "lyra/lyra_decoder.h"
+
+static chromemedia::codec::LyraDecoder* lyraDecoders[3] = {nullptr, nullptr, nullptr};
+static chromemedia::codec::LyraEncoder* lyraEncoders[3] = {nullptr, nullptr, nullptr};
+
+const char* cpp_model_base_path;
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_google_Lyra_encodeRaw(
+    JNIEnv* env, jobject this_obj, jstring model_base_path, jint bitrate, jshortArray samples, jint sample_length) {
+    int index = bitrate <= 3200 ? 0 : (bitrate <= 6400 ? 1 : 2);
+    if (lyraEncoders[index] == nullptr) {
+        cpp_model_base_path = env->GetStringUTFChars(model_base_path, nullptr);
+        lyraEncoders[index] = chromemedia::codec::LyraEncoder::Create(
+            16000, 1, bitrate, false, cpp_model_base_path).release();
+    }
+    
+    std::vector<int16_t> samples_vector(sample_length);
+    jbyteArray java_encoded = nullptr;
+    env->GetShortArrayRegion(samples, jsize{0}, sample_length,
+                           &samples_vector[0]);
+    std::vector<uint8_t> encoded = lyraEncoders[index]->Encode(samples_vector).value();
+    java_encoded = env->NewByteArray(encoded.size());
+    env->SetByteArrayRegion(java_encoded, 0, encoded.size(),
+                             (jbyte*) &encoded[0]);
+    return java_encoded;
+}
 
 extern "C" JNIEXPORT jshortArray JNICALL
-Java_com_example_android_lyra_MainActivity_encodeAndDecodeSamples(
-    JNIEnv* env, jobject this_obj, jshortArray samples, jint sample_length,
-    jint bitrate, jstring model_base_path) {
-  std::vector<int16_t> samples_vector(sample_length);
-  std::vector<uint8_t> features;
-  std::vector<int16_t> decoded_audio;
-  jshortArray java_decoded_audio = nullptr;
-  env->GetShortArrayRegion(samples, jsize{0}, sample_length,
-                           &samples_vector[0]);
-
-  const char* cpp_model_base_path = env->GetStringUTFChars(model_base_path, 0);
-  std::unique_ptr<chromemedia::codec::LyraDecoder> decoder =
-      chromemedia::codec::LyraDecoder::Create(
-          16000, chromemedia::codec::kNumChannels, cpp_model_base_path);
-
-  absl::BitGen gen;
-  if (chromemedia::codec::EncodeWav(
-          samples_vector, chromemedia::codec::kNumChannels, 16000, bitrate,
-          false, false, cpp_model_base_path, &features) &&
-      chromemedia::codec::DecodeFeatures(
-          features, chromemedia::codec::BitrateToPacketSize(bitrate),
-          /*randomize_num_samples_requested=*/false, gen, decoder.get(),
-          nullptr, &decoded_audio)) {
-    java_decoded_audio = env->NewShortArray(decoded_audio.size());
-    env->SetShortArrayRegion(java_decoded_audio, 0, decoded_audio.size(),
-                             &decoded_audio[0]);
-  }
-
-  env->ReleaseStringUTFChars(model_base_path, cpp_model_base_path);
-
-  return java_decoded_audio;
+Java_com_google_Lyra_decodeRaw(
+    JNIEnv* env, jobject this_obj, jstring model_base_path, jint bitrate, jbyteArray samples, jint sample_length) {
+    int index = bitrate <= 3200 ? 0 : (bitrate <= 6400 ? 1 : 2);
+    if (lyraDecoders[index] == nullptr) {
+        cpp_model_base_path = env->GetStringUTFChars(model_base_path, nullptr);
+        lyraDecoders[index] = chromemedia::codec::LyraDecoder::Create(
+            16000, 1, cpp_model_base_path).release();
+    }
+    
+    std::vector<uint8_t> samples_vector(sample_length);
+    jshortArray java_decoded = nullptr;
+    env->GetByteArrayRegion(samples, jsize{0}, sample_length,
+                           (jbyte*) &samples_vector[0]);
+    lyraDecoders[index]->SetEncodedPacket(samples_vector);
+    std::vector<int16_t> decoded = lyraDecoders[index]->DecodeSamples(320).value();
+    java_decoded = env->NewShortArray(decoded.size());
+    env->SetShortArrayRegion(java_decoded, 0, decoded.size(),
+                             &decoded[0]);
+    return java_decoded;
 }
 
-extern "C" JNIEXPORT int JNICALL
-Java_com_example_android_lyra_MainActivity_lyraBenchmark(
-    JNIEnv* env, jobject this_obj, jint num_cond_vectors,
-    jstring model_base_path) {
-  const char* cpp_model_base_path = env->GetStringUTFChars(model_base_path, 0);
-  int ret =
-      chromemedia::codec::lyra_benchmark(num_cond_vectors, cpp_model_base_path,
-                                         /*benchmark_feature_extraction=*/true,
-                                         /*benchmark_quantizer=*/true,
-                                         /*benchmark_generative_model=*/true);
-  env->ReleaseStringUTFChars(model_base_path, cpp_model_base_path);
-  return ret;
-}

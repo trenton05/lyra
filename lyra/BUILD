@@ -852,3 +852,32 @@ filegroup(
         "model_coeffs/*.tflite",
     ]) + ["model_coeffs/lyra_config.binarypb"],
 )
+
+cc_binary(
+    name = "liblyra_library.so",
+    srcs = [
+        "lyra_library.cc",
+    ],
+    deps = [
+        "//lyra:lyra_config",
+        "//lyra:lyra_encoder",
+        "//lyra:no_op_preprocessor",
+        "//lyra:wav_utils",
+        "//lyra:fixed_packet_loss_model",
+        "//lyra:gilbert_model",
+        "//lyra:lyra_decoder",
+        "//lyra:packet_loss_model_interface",
+        "@com_google_absl//absl/flags:marshalling",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+        "@com_google_glog//:glog",
+        "@gulrak_filesystem//:filesystem",
+    ],
+    linkshared = True,
+)
+
