@@ -44,12 +44,16 @@ cc_binary(
 #include "lyra/lyra_encoder.h"
 #include "lyra/lyra_decoder.h"
 
-void* LyraStartEncode(int hz, int channels, int bitrate, bool dtx, const char* model_path) {
-    return (void*) chromemedia::codec::LyraEncoder::Create(hz, channels, bitrate, dtx, model_path).release();
+void* LyraInitEncoder(const char* model_path) {
+    return chromemedia::codec::LyraEncoder::Create(16000, 1, 3200, false, model_path).release();
+}
+void* LyraInitDecoder(const char* model_path) {
+    return chromemedia::codec::LyraDecoder::Create(16000, 1, model_path).release();
 }
 
-void LyraEncode(void* ptr, int bitrate, const char* in, int length, char* out) {
-    chromemedia::codec::LyraEncoder* encoder = (chromemedia::codec::LyraEncoder*) ptr;
+void LyraEncode(void* encoder, int bitrate, const char* in, int length, char* out) {
+    chromemedia::codec::LyraEncoder* lyraEncoder = static_cast<chromemedia::codec::LyraEncoder*>(encoder);
+    lyraEncoder->set_bitrate(bitrate);
 
     int batchSize = 640;
     int outOffset = 0;
@@ -59,20 +63,15 @@ void LyraEncode(void* ptr, int bitrate, const char* in, int length, char* out) {
         for (int j = 0; j < samples_vector.size(); j++) {
             samples_vector[j] = (in[i + j * 2] & 0xff) | ((in[i + j * 2 + 1] & 0xff) << 8);
         }
-        std::vector<uint8_t> encoded = encoder->Encode(samples_vector).value();
+        std::vector<uint8_t> encoded = lyraEncoder->Encode(samples_vector).value();
         for (int j = 0; j < encoded.size(); j++) {
             out[outOffset++] = encoded[j];
         }
     }
 }
 
-void* LyraStartDecode(int hz, int channels, const char* model_path) {
-    return (void*) chromemedia::codec::LyraDecoder::Create(hz, channels, model_path).release();
-}
-
-void LyraDecode(void* ptr, int bitrate, const char* in, int length, char* out) {
-    chromemedia::codec::LyraDecoder* decoder = (chromemedia::codec::LyraDecoder*) ptr;
-
+void LyraDecode(void* decoder, int bitrate, const char* in, int length, char* out) {
+    chromemedia::codec::LyraDecoder* lyraDecoder = static_cast<chromemedia::codec::LyraDecoder*>(decoder);
     int batchSize = bitrate / 400;
     int outOffset = 0;
 
@@ -81,8 +80,8 @@ void LyraDecode(void* ptr, int bitrate, const char* in, int length, char* out) {
         for (int j = 0; j < samples_vector.size(); j++) {
             samples_vector[j] = in[i + j];
         }
-        decoder->SetEncodedPacket(samples_vector);
-        std::vector<int16_t> decoded = decoder->DecodeSamples(320).value();
+        lyraDecoder->SetEncodedPacket(samples_vector);
+        std::vector<int16_t> decoded = lyraDecoder->DecodeSamples(320).value();
         for (int j = 0; j < decoded.size(); j++) {
             out[outOffset++] = (decoded[j] & 0xff);
             out[outOffset++] = (decoded[j] >> 8) & 0xff;

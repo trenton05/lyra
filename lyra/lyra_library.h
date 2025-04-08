@@ -22,10 +22,10 @@
 #include <optional>
 #include <vector>
 
-void* LyraStartEncode(int hz, int channels, int bitrate, bool dtx, const char* model_path);
-void LyraEncode(void* ptr, int bitrate, const char* input, int length, char* output);
-void* LyraStartDecode(int hz, int channels, const char* model_path);
-void LyraDecode(void* ptr, int bitrate, const char* input, int length, char* output);
+void* LyraInitEncoder(const char* model_path);
+void* LyraInitDecoder(const char* model_path);
+void LyraEncode(void* encoder, int bitrate, const char* input, int length, char* output);
+void LyraDecode(void* decoder, int bitrate, const char* input, int length, char* output);
 
 #endif  // LYRA_LYRA_DECODER_H_
 
