@@ -33,26 +33,29 @@
 #include "lyra/lyra_encoder.h"
 #include "lyra/lyra_decoder.h"
 
-static chromemedia::codec::LyraDecoder* lyraDecoders[3] = {nullptr, nullptr, nullptr};
-static chromemedia::codec::LyraEncoder* lyraEncoders[3] = {nullptr, nullptr, nullptr};
+static std::unique_ptr<chromemedia::codec::LyraDecoder> lyraDecoder = nullptr;
+static std::unique_ptr<chromemedia::codec::LyraEncoder> lyraEncoder = nullptr;
 
 const char* cpp_model_base_path;
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_Lyra_initLyra(
+    JNIEnv* env, jobject this_obj, jstring model_base_path) {
+    cpp_model_base_path = env->GetStringUTFChars(model_base_path, nullptr);
+    lyraEncoder = chromemedia::codec::LyraEncoder::Create(16000, 1, 3200, false, cpp_model_base_path);
+    lyraDecoder = chromemedia::codec::LyraDecoder::Create(16000, 1, cpp_model_base_path);
+}
+
 extern "C" JNIEXPORT jbyteArray JNICALL
 Java_com_google_Lyra_encodeRaw(
-    JNIEnv* env, jobject this_obj, jstring model_base_path, jint bitrate, jshortArray samples, jint sample_length) {
-    int index = bitrate <= 3200 ? 0 : (bitrate <= 6400 ? 1 : 2);
-    if (lyraEncoders[index] == nullptr) {
-        cpp_model_base_path = env->GetStringUTFChars(model_base_path, nullptr);
-        lyraEncoders[index] = chromemedia::codec::LyraEncoder::Create(
-            16000, 1, bitrate, false, cpp_model_base_path).release();
-    }
+    JNIEnv* env, jobject this_obj, jint bitrate, jshortArray samples, jint sample_length) {
+    lyraEncoder->set_bitrate(bitrate);
     
     std::vector<int16_t> samples_vector(sample_length);
     jbyteArray java_encoded = nullptr;
     env->GetShortArrayRegion(samples, jsize{0}, sample_length,
                            &samples_vector[0]);
-    std::vector<uint8_t> encoded = lyraEncoders[index]->Encode(samples_vector).value();
+    std::vector<uint8_t> encoded = lyraEncoder->Encode(samples_vector).value();
     java_encoded = env->NewByteArray(encoded.size());
     env->SetByteArrayRegion(java_encoded, 0, encoded.size(),
                              (jbyte*) &encoded[0]);
@@ -61,23 +64,16 @@ Java_com_google_Lyra_encodeRaw(
 
 extern "C" JNIEXPORT jshortArray JNICALL
 Java_com_google_Lyra_decodeRaw(
-    JNIEnv* env, jobject this_obj, jstring model_base_path, jint bitrate, jbyteArray samples, jint sample_length) {
-    int index = bitrate <= 3200 ? 0 : (bitrate <= 6400 ? 1 : 2);
-    if (lyraDecoders[index] == nullptr) {
-        cpp_model_base_path = env->GetStringUTFChars(model_base_path, nullptr);
-        lyraDecoders[index] = chromemedia::codec::LyraDecoder::Create(
-            16000, 1, cpp_model_base_path).release();
-    }
+    JNIEnv* env, jobject this_obj, jint bitrate, jbyteArray samples, jint sample_length) {
     
     std::vector<uint8_t> samples_vector(sample_length);
     jshortArray java_decoded = nullptr;
     env->GetByteArrayRegion(samples, jsize{0}, sample_length,
                            (jbyte*) &samples_vector[0]);
-    lyraDecoders[index]->SetEncodedPacket(samples_vector);
-    std::vector<int16_t> decoded = lyraDecoders[index]->DecodeSamples(320).value();
+    lyraDecoder->SetEncodedPacket(samples_vector);
+    std::vector<int16_t> decoded = lyraDecoder->DecodeSamples(320).value();
     java_decoded = env->NewShortArray(decoded.size());
     env->SetShortArrayRegion(java_decoded, 0, decoded.size(),
                              &decoded[0]);
     return java_decoded;
 }
-
