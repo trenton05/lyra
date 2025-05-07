@@ -48,6 +48,7 @@ public class Lyra {
   public void init() {
     weightsDirectory = context.getExternalFilesDir(null).getAbsolutePath();
     copyWeightsAssetsToDirectory(weightsDirectory);
+    initLyra(weightsDirectory);
   }
 
   private void copyWeightsAssetsToDirectory(String targetDirectory) {
@@ -75,14 +76,15 @@ public class Lyra {
     }
   }
 
-  public byte[] encode(int bitrate, short[] samples, int sampleLength) {
-      return encodeRaw(weightsDirectory, bitrate, samples, sampleLength);
+  public byte[] encode(int bitrate, short[] samples) {
+      return encodeRaw(bitrate, samples, samples.length);
   }
 
-  public short[] decode(int bitrate, byte[] encoded, int encodedLength) {
-      return decodeRaw(weightsDirectory, bitrate, encoded, encodedLength);
+  public short[] decode(int bitrate, byte[] encoded) {
+      return decodeRaw(bitrate, encoded, encoded.length);
   }
 
-    public native byte[] encodeRaw(String directory, int bitrate, short[] samples, int sampleLength);
-    public native short[] decodeRaw(String directory, int bitrate, byte[] encoded, int encodedLength);
+    public native byte[] initLyra(String directory);
+    public native byte[] encodeRaw(int bitrate, short[] samples, int sampleLength);
+    public native short[] decodeRaw(int bitrate, byte[] encoded, int encodedLength);
 }
